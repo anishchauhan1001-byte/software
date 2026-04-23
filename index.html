@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IORA PM Tool - Advanced Full</title>
+ 
+<style>
+:root {
+  --green:#5f6f2f;
+  --bg:#f5f7f2;
+  --card:#fff;
+  --muted:#6b736b;
+  --border:#e2e6dc;
+}
+body {font-family: Arial; background:var(--bg); padding:20px;}
+.header{display:flex;gap:10px;align-items:center;margin-bottom:15px;}
+.controls{display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;}
+input,select{padding:6px;border:1px solid var(--border);border-radius:6px;}
+.phase{background:var(--card);border:1px solid var(--border);margin-bottom:12px;border-radius:10px;}
+.phase-title{padding:10px;font-weight:bold;background:#eef2e8;}
+.item{display:flex;gap:8px;padding:8px 10px;border-top:1px solid #eee;align-items:center;}
+.item:hover{background:#f7f9f4;}
+.checkbox{width:14px;height:14px;border:2px solid #aaa;cursor:pointer;}
+.checked{background:var(--green);}
+.text.done{text-decoration:line-through;color:var(--muted);}
+.tag{font-size:10px;padding:2px 5px;border-radius:8px;margin-left:5px;}
+.critical{background:#ffdede;}
+.important{background:#fff4cc;}
+.routine{background:#e6f5e6;}
+.risk{margin-left:auto;cursor:pointer;color:#aaa;}
+.risk.active{color:red;}
+.deadline{font-size:10px;background:#eef3e7;padding:2px 5px;border-radius:8px;}
+.progress{margin-bottom:15px;}
+.bar{height:6px;background:#ddd;border-radius:6px;}
+.fill{height:100%;background:var(--green);width:0%;}
+</style>
+</head>
+ 
+<body>
+ 
+<div class="header">
+<h2>IORA Project Manager Tool</h2>
+</div>
+ 
+<div class="controls">
+<input id="search" placeholder="Search...">
+<select id="priorityFilter">
+<option value="">All Priorities</option>
+<option value="critical">Critical</option>
+<option value="important">Important</option>
+<option value="routine">Routine</option>
+</select>
+<select id="statusFilter">
+<option value="">All Status</option>
+<option value="done">Completed</option>
+<option value="pending">Pending</option>
+<option value="risk">At Risk</option>
+</select>
+</div>
+ 
+<div class="progress">
+<div id="ptext"></div>
+<div class="bar"><div class="fill" id="fill"></div></div>
+</div>
+ 
+<div id="app"></div>
+ 
+<script>
+const data = [
+{phase:"Project Handover",items:[
+{text:"Route signed contract to Admin, Client, Finance, PMG and Directors",p:"critical",d:"Day 0"},
+{text:"Collect final proposal, deliverables and budget",p:"critical",d:"Day 0"},
+{text:"Confirm project code allocation",p:"important",d:"48 hrs"},
+{text:"Confirm DPM and reviewer assignment",p:"important",d:"48 hrs"},
+{text:"Prepare project write-up for teams",p:"routine",d:"Week 1"}
+]},
+{phase:"Inception — Internal",items:[
+{text:"Conduct internal kickoff meeting",p:"critical",d:"14 days"},
+{text:"Present project plan and timelines",p:"critical",d:"Kickoff"},
+{text:"Communicate procurement and HR needs",p:"important",d:"Kickoff"},
+{text:"Create Teams group",p:"important",d:"Post"},
+{text:"Set up channels and planner",p:"routine",d:"Post"},
+{text:"Create SharePoint structure",p:"routine",d:"Post"},
+{text:"Define naming protocol",p:"routine",d:"Post"},
+{text:"Enter deliverables into system",p:"important",d:"Post"},
+{text:"Set milestone alerts",p:"important",d:"Post"},
+{text:"Enable MS Loop if needed",p:"routine",d:"NA"}
+]},
+{phase:"Inception — Client",items:[
+{text:"Schedule client inception meeting",p:"critical",d:"7 days"},
+{text:"Prepare presentation",p:"important",d:"Meeting"},
+{text:"Share inception report",p:"important",d:"Post"},
+{text:"Share internal summary",p:"routine",d:"Post"},
+{text:"Define communication protocol",p:"critical",d:"Ongoing"},
+{text:"Create WhatsApp group if needed",p:"routine",d:"NA"},
+{text:"Plan launch workshop if required",p:"routine",d:"NA"}
+]},
+{phase:"Consultant Management",items:[
+{text:"Prepare SOW and initiate contract",p:"critical",d:"14 days"},
+{text:"Share billing templates",p:"important",d:"Week 1"},
+{text:"Approve timesheets",p:"important",d:"Monthly"},
+{text:"Notify contract changes",p:"critical",d:"NA"}
+]},
+{phase:"Project Implementation",items:[
+{text:"Attend client meetings",p:"critical",d:"Ongoing"},
+{text:"Define team responsibilities",p:"critical",d:"Ongoing"},
+{text:"Monitor workload",p:"important",d:"Ongoing"},
+{text:"Ensure shared file usage",p:"important",d:"Ongoing"},
+{text:"Use approved templates",p:"routine",d:"Start"},
+{text:"Plan and execute fieldwork",p:"critical",d:"Pre-field"},
+{text:"Ensure deliverable reviews",p:"critical",d:"Milestone"},
+{text:"Track financial milestones",p:"important",d:"Ongoing"},
+{text:"Escalate risks",p:"critical",d:"As needed"},
+{text:"Trigger invoices",p:"important",d:"Milestone"}
+]},
+{phase:"Project Completion",items:[
+{text:"Inform all teams of completion",p:"important",d:"Close"},
+{text:"Archive project files",p:"important",d:"Close"},
+{text:"Conduct performance review",p:"important",d:"Close"},
+{text:"Update project write-up",p:"routine",d:"Close"},
+{text:"Collect client feedback",p:"critical",d:"2 weeks"},
+{text:"Obtain completion certificate",p:"critical",d:"2 weeks"},
+{text:"Plan dissemination",p:"routine",d:"2 weeks"}
+]}
+];
+ 
+let state = JSON.parse(localStorage.getItem("iora_full"))||{};
+ 
+function save(){localStorage.setItem("iora_full",JSON.stringify(state));}
+ 
+function toggle(i,j){let k=i+"_"+j;state[k]=state[k]||{};state[k].done=!state[k].done;save();render();}
+function risk(i,j){let k=i+"_"+j;state[k]=state[k]||{};state[k].risk=!state[k].risk;save();render();}
+ 
+function render(){
+let s=document.getElementById("search").value.toLowerCase();
+let pf=document.getElementById("priorityFilter").value;
+let sf=document.getElementById("statusFilter").value;
+ 
+let done=0,total=0;
+ 
+let html=data.map((p,i)=>{
+let items=p.items.filter((it,j)=>{
+let k=i+"_"+j;let st=state[k]||{};
+if(s && !it.text.toLowerCase().includes(s))return false;
+if(pf && it.p!=pf)return false;
+if(sf=="done" && !st.done)return false;
+if(sf=="pending" && st.done)return false;
+if(sf=="risk" && !st.risk)return false;
+return true;
+}).map((it,j)=>{
+let k=i+"_"+j;let st=state[k]||{};
+total++; if(st.done) done++;
+return `<div class="item">
+<div class="checkbox ${st.done?'checked':''}" onclick="toggle(${i},${j})"></div>
+<div class="text ${st.done?'done':''}">
+${it.text}<span class="tag ${it.p}">${it.p}</span>
+</div>
+<div class="deadline">${it.d}</div>
+<div class="risk ${st.risk?'active':''}" onclick="risk(${i},${j})">⚠</div>
+</div>`;
+}).join("");
+ 
+if(!items) return "";
+return `<div class="phase"><div class="phase-title">${p.phase}</div>${items}</div>`;
+}).join("");
+ 
+document.getElementById("app").innerHTML=html;
+ 
+let pct=total?Math.round(done/total*100):0;
+document.getElementById("fill").style.width=pct+"%";
+document.getElementById("ptext").innerText=`${done}/${total} (${pct}%)`;
+}
+ 
+document.getElementById("search").oninput=render;
+document.getElementById("priorityFilter").onchange=render;
+document.getElementById("statusFilter").onchange=render;
+ 
+render();
+</script>
+ 
+</body>
+</html>
